@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, deleteDoc, doc, runTransaction, orderBy, query, serverTimestamp } from 'firebase/firestore'
 import EditTask from './EditTask'
 import { db } from '../services/firebase'
+import Dashboard from './Dashboard'
 
 const Tasks = () => {
 
@@ -19,76 +20,81 @@ const Tasks = () => {
 
   useEffect(() => {
     const getTasks = async () => {
-      await getDocs(collectionRef).then((task) =>{
-        task.docChanges.map((doc) => console.log(doc))
+      const q = query(collectionRef, orderBy('timestamp'))
+      await getDocs(q).then((tasks) => {
+        let tasksData = tasks.docs.map((doc) => ({ ...doc.data(), id: doc.id }))
+        setTasks(tasksData)
+        setChecked(tasksData)
+      }).catch((err) => {
+        console.log(err);
       })
     }
     getTasks()
   }, [])
 
 
-  // //Add Task Handler
-  // const submitTask = async (e) => {
-  //   e.preventDefault();
+  //Add Task Handler
+  const submitTask = async (e) => {
+    e.preventDefault();
 
-  //   try {
-  //     await addDoc(collectionRef, {
-  //       task: createTask,
-  //       isChecked: false,
-  //       timestamp: serverTimestamp()
-  //     })
-  //     window.location.reload();
-  //   } catch (err) {
-  //     console.log(err);
-  //   }
-  // }
-
-
-  // //Delete Handler
-  // const deleteTask = async (id) => {
-  //   try {
-  //     window.confirm("Are you sure you want to delete this task?")
-  //     const documentRef = doc(db, "tasks", id);
-  //     await deleteDoc(documentRef)
-  //     window.location.reload();
-  //   } catch (err) {
-  //     console.log(err);
-  //   }
-  // }
-
-  // //Checkbox Handler
-  // const checkHandler = async (event, task) => {
-
-  //   setChecked(state => {
-  //     const indexToUpdate = state.findIndex(checkBox => checkBox.id.toString() === event.target.name);
-  //     let newState = state.slice()
-  //     newState.splice(indexToUpdate, 1, {
-  //       ...state[indexToUpdate],
-  //       isChecked: !state[indexToUpdate].isChecked,
-
-  //     })
-  //     setTasks(newState)
-  //     return newState
-  //   });
+    try {
+      await addDoc(collectionRef, {
+        task: createTask,
+        isChecked: false,
+        timestamp: serverTimestamp()
+      })
+      window.location.reload();
+    } catch (err) {
+      console.log(err);
+    }
+  }
 
 
-  //   // Persisting the checked value
-  //   try {
-  //     const docRef = doc(db, "tasks", event.target.name);
-  //     await runTransaction(db, async (transaction) => {
-  //       const taskDoc = await transaction.get(docRef);
-  //       if (!taskDoc.exists()) {
-  //         throw "Document does not exist!";
-  //       }
-  //       const newValue = !taskDoc.data().isChecked;
-  //       transaction.update(docRef, { isChecked: newValue });
-  //     });
-  //     console.log("Transaction successfully committed!");
-  //   } catch (error) {
-  //     console.log("Transaction failed: ", error);
-  //   }
+  //Delete Handler
+  const deleteTask = async (id) => {
+    try {
+      window.confirm("Are you sure you want to delete this task?")
+      const documentRef = doc(db, "tasks", id);
+      await deleteDoc(documentRef)
+      window.location.reload();
+    } catch (err) {
+      console.log(err);
+    }
+  }
 
-  // };
+  //Checkbox Handler
+  const checkHandler = async (event, task) => {
+
+    setChecked(state => {
+      const indexToUpdate = state.findIndex(checkBox => checkBox.id.toString() === event.target.name);
+      let newState = state.slice()
+      newState.splice(indexToUpdate, 1, {
+        ...state[indexToUpdate],
+        isChecked: !state[indexToUpdate].isChecked,
+
+      })
+      setTasks(newState)
+      return newState
+    });
+
+
+    // Persisting the checked value
+    try {
+      const docRef = doc(db, "tasks", event.target.name);
+      await runTransaction(db, async (transaction) => {
+        const taskDoc = await transaction.get(docRef);
+        if (!taskDoc.exists()) {
+          throw "Document does not exist!";
+        }
+        const newValue = !taskDoc.data().isChecked;
+        transaction.update(docRef, { isChecked: newValue });
+      });
+      console.log("Transaction successfully committed!");
+    } catch (error) {
+      console.log("Transaction failed: ", error);
+    }
+
+  };
 
 
 
@@ -96,6 +102,7 @@ const Tasks = () => {
   return (
     <>
       <div className="container">
+        <Dashboard />
         <div className="row">
           <div className="col-md-12">
             <div className="card card-white">
@@ -117,7 +124,7 @@ const Tasks = () => {
                             <input
                               type="checkbox"
                               defaultChecked={isChecked}
-                              // onChange={(event) => checkHandler(event, task)}
+                              onChange={(event) => checkHandler(event, task)}
                               name={id}
                             />
                           </span>
@@ -125,12 +132,13 @@ const Tasks = () => {
                         &nbsp;{task}<br />
                         <i>{new Date(timestamp.seconds * 1000).toLocaleString()}</i>
                       </span>
-                      <span className=" float-end mx-3"><EditTask task={task} id={id} /></span>
+                      <span className=" float-end mx-3"><EditTask task={task} id={id} />
                       <button
                         type="button"
-                        className="btn btn-danger float-end"
-                        // onClick={() => deleteTask(id)}
+                        className="btn btn-danger float-end mx-3"
+                        onClick={() => deleteTask(id)}
                       >Delete</button>
+                      </span>
                     </div>
                   </div>
                 )}
@@ -143,7 +151,7 @@ const Tasks = () => {
       {/* Modal */}
       <div className="modal fade" id="addModal" tabIndex="-1" aria-labelledby="addModalLabel" aria-hidden="true">
         <div className="modal-dialog">
-          <form className="d-flex" >
+          <form className="d-flex" onSubmit={submitTask}>
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title" id="addModalLabel">Add Task</h5>
@@ -151,7 +159,7 @@ const Tasks = () => {
               </div>
               <div className="modal-body">
 
-
+              
                 <input
                   type="text"
                   className="form-control"
@@ -172,5 +180,6 @@ const Tasks = () => {
     </>
   )
 }
+
 
 export default Tasks
